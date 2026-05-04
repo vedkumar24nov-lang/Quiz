@@ -1,0 +1,2 @@
+- [User profile — Vedant](user_profile.md) — Class 11 JEE aspirant in India; building a JEE-prep quiz app for himself and students like him
+- [JEE Quiz App project](project_quiz_app.md) — active project in Phase 1 (Discovery); spec in REQUIREMENTS.md, three-phase plan
