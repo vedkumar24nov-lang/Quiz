@@ -20,6 +20,8 @@
 | **S7** Closed Beta | ⚪ Not Started | — | — | 20–50 real students |
 | **S8** Public Launch | ⚪ Not Started | — | — | Open doors |
 
+
+
 **Legend:** ⚪ Not Started · 🟡 In Progress · 🟢 Done · 🔴 Blocked
 
 ### S3 sub-stage breakdown (post-pivot)
