@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AppShell } from '@/components/layout/AppShell';
 import { AuthorShell } from '@/components/layout/AuthorShell';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Landing } from '@/pages/Landing';
 import { SignIn } from '@/pages/SignIn';
 import { Dashboard } from '@/pages/Dashboard';
@@ -14,7 +15,21 @@ import { CustomTestBuilder } from '@/pages/CustomTestBuilder';
 import { Heatmap } from '@/pages/Heatmap';
 import { Report } from '@/pages/Report';
 import { AuthorDashboard } from '@/pages/author/AuthorDashboard';
-import { AuthorPlaceholder } from '@/pages/author/AuthorPlaceholder';
+import { AuthorTopics } from '@/pages/author/AuthorTopics';
+import { AuthorTracks } from '@/pages/author/AuthorTracks';
+import { AuthorExam } from '@/pages/author/AuthorExam';
+import { AuthorFormats } from '@/pages/author/AuthorFormats';
+import { AuthorExamList } from '@/pages/author/AuthorExamList';
+import { AuthorExamBuilder } from '@/pages/author/AuthorExamBuilder';
+import { AuthorQuestions } from '@/pages/author/AuthorQuestions';
+import { AuthorImports } from '@/pages/author/AuthorImports';
+import { AuthorHistory } from '@/pages/author/AuthorHistory';
+import { AdminReviewQueue } from '@/pages/admin/AdminReviewQueue';
+import { AdminUsers } from '@/pages/admin/AdminUsers';
+import { AdminFlags } from '@/pages/admin/AdminFlags';
+import { AdminTickets } from '@/pages/admin/AdminTickets';
+import { Support } from '@/pages/Support';
+import { StudentExams } from '@/pages/StudentExams';
 import { useAuthStore } from '@/store/authStore';
 
 export default function App() {
@@ -26,12 +41,15 @@ export default function App() {
   }, [hydrate]);
 
   // Author console routes use a different shell (sidebar layout) than the
-  // student app (top-nav layout). Detect by URL prefix.
-  const isAuthorRoute = location.pathname.startsWith('/author');
+  // student app (top-nav layout). Detect by URL prefix. Admin shares the
+  // same shell — admins do author work too, just with extra nav items.
+  const isAuthorRoute =
+    location.pathname.startsWith('/author') || location.pathname.startsWith('/admin');
 
   if (isAuthorRoute) {
     return (
       <AuthorShell>
+        <ErrorBoundary>
         <Routes>
           <Route
             path="/author/dashboard"
@@ -42,14 +60,51 @@ export default function App() {
             }
           />
           <Route
+            path="/author/tracks"
+            element={
+              <ProtectedRoute requireRole={['author', 'admin']}>
+                <AuthorTracks />
+              </ProtectedRoute>
+            }
+          />
+          {/* Legacy alias — older bookmarks. Redirects to the new path. */}
+          <Route path="/author/exams" element={<Navigate to="/author/tracks" replace />} />
+          {/* Exam — tabbed parent (Paper Patterns + Exams) */}
+          <Route
+            path="/author/exam"
+            element={
+              <ProtectedRoute requireRole={['author', 'admin']}>
+                <AuthorExam />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="/author/exam/patterns" replace />} />
+            <Route path="patterns" element={<AuthorFormats />} />
+            <Route path="list" element={<AuthorExamList />} />
+          </Route>
+          <Route
+            path="/author/exam/new"
+            element={
+              <ProtectedRoute requireRole={['author', 'admin']}>
+                <AuthorExamBuilder />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/author/exam/:examId"
+            element={
+              <ProtectedRoute requireRole={['author', 'admin']}>
+                <AuthorExamBuilder />
+              </ProtectedRoute>
+            }
+          />
+          {/* Legacy alias — older bookmarks. */}
+          <Route path="/author/formats" element={<Navigate to="/author/exam/patterns" replace />} />
+          <Route
             path="/author/topics"
             element={
               <ProtectedRoute requireRole={['author', 'admin']}>
-                <AuthorPlaceholder
-                  title="Topics & Subtopics"
-                  comingInSubstage="B3"
-                  description="Tree view of every chapter, topic, and subtopic. Add, edit, delete, and drag-and-drop reorder. New topics show up immediately as cards under the chapter on the student side."
-                />
+                <AuthorTopics />
               </ProtectedRoute>
             }
           />
@@ -57,11 +112,7 @@ export default function App() {
             path="/author/questions"
             element={
               <ProtectedRoute requireRole={['author', 'admin']}>
-                <AuthorPlaceholder
-                  title="Questions"
-                  comingInSubstage="B4"
-                  description="Author individual questions with stem, MCQ options or numerical answer, image upload for diagrams, intrinsic difficulty + cognitive-type tags, and worked solution."
-                />
+                <AuthorQuestions />
               </ProtectedRoute>
             }
           />
@@ -69,23 +120,7 @@ export default function App() {
             path="/author/imports"
             element={
               <ProtectedRoute requireRole={['author', 'admin']}>
-                <AuthorPlaceholder
-                  title="Bulk Import"
-                  comingInSubstage="B5"
-                  description="Upload PYQ datasets via CSV. Validation table catches errors row-by-row. Fix inline, then publish the batch."
-                />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/author/tests"
-            element={
-              <ProtectedRoute requireRole={['author', 'admin']}>
-                <AuthorPlaceholder
-                  title="Test Templates"
-                  comingInSubstage="B6"
-                  description="Hand-pick questions, set duration and marking scheme, give the test a name. Students see your tests in the Custom Test option."
-                />
+                <AuthorImports />
               </ProtectedRoute>
             }
           />
@@ -93,23 +128,56 @@ export default function App() {
             path="/author/history"
             element={
               <ProtectedRoute requireRole={['author', 'admin']}>
-                <AuthorPlaceholder
-                  title="Edit History"
-                  comingInSubstage="B7"
-                  description="Audit trail of every author write — who created/edited what and when. Helpful when a question's tags get questioned."
-                />
+                <AuthorHistory />
               </ProtectedRoute>
             }
           />
           <Route path="/author" element={<Navigate to="/author/dashboard" replace />} />
           <Route path="/author/*" element={<Navigate to="/author/dashboard" replace />} />
+
+          {/* Admin tools — admin role only. */}
+          <Route
+            path="/admin/review"
+            element={
+              <ProtectedRoute requireRole={['admin']}>
+                <AdminReviewQueue />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/users"
+            element={
+              <ProtectedRoute requireRole={['admin']}>
+                <AdminUsers />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/flags"
+            element={
+              <ProtectedRoute requireRole={['admin']}>
+                <AdminFlags />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/tickets"
+            element={
+              <ProtectedRoute requireRole={['admin']}>
+                <AdminTickets />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/admin" element={<Navigate to="/admin/review" replace />} />
         </Routes>
+        </ErrorBoundary>
       </AuthorShell>
     );
   }
 
   return (
     <AppShell>
+      <ErrorBoundary>
       <Routes>
         {/* Public */}
         <Route path="/" element={<Landing />} />
@@ -167,10 +235,34 @@ export default function App() {
           }
         />
         <Route
+          path="/quiz/exam/:examId"
+          element={
+            <ProtectedRoute>
+              <TestQuiz />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/custom-test"
           element={
             <ProtectedRoute>
               <CustomTestBuilder />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/exams"
+          element={
+            <ProtectedRoute>
+              <StudentExams />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/support"
+          element={
+            <ProtectedRoute>
+              <Support />
             </ProtectedRoute>
           }
         />
@@ -188,6 +280,7 @@ export default function App() {
         {/* 404 → home */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </ErrorBoundary>
     </AppShell>
   );
 }

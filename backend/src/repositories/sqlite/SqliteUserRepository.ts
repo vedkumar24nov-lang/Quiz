@@ -59,4 +59,18 @@ export class SqliteUserRepository implements IUserRepository {
     const all = await db.select().from(users);
     return all.length;
   }
+
+  async updateRole(id: string, role: User['role']): Promise<User | null> {
+    const db = getDb();
+    await db.update(users).set({ role }).where(eq(users.id, id));
+    return this.findById(id);
+  }
+
+  async delete(id: string): Promise<boolean> {
+    const db = getDb();
+    const existing = await this.findById(id);
+    if (!existing) return false;
+    await db.delete(users).where(eq(users.id, id));
+    return true;
+  }
 }

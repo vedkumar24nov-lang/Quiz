@@ -71,6 +71,19 @@ export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
   return handle<T>(res);
 }
 
+export async function apiSend<T>(
+  path: string,
+  method: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+  body?: unknown
+): Promise<T> {
+  const res = await fetch(path, {
+    method,
+    headers: buildHeaders(),
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  return handle<T>(res);
+}
+
 export async function apiDelete<T>(path: string): Promise<T> {
   const res = await fetch(path, { method: 'DELETE', headers: buildHeaders() });
   return handle<T>(res);

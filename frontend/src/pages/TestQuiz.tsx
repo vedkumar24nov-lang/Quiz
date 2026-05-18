@@ -7,12 +7,18 @@ import { QuizHeader } from '@/components/quiz/QuizHeader';
 import { getTopicById, getChapterByTopic } from '@/data/subjects';
 import { getQuestionsByTopic } from '@/data/questions';
 import { useQuizActions, useQuizSession } from '@/store/quizStore';
+import { useExamById } from '@/store/examsStore';
+import { useQuestionsStore } from '@/store/questionsStore';
+import { useTracks } from '@/store/hierarchyStore';
+import { useFormats } from '@/store/formatsStore';
+import type { Question } from '@/types';
 import { cn } from '@/lib/cn';
 
 const TOPIC_TEST_DURATION_SECONDS = 15 * 60; // 15-minute Topic Test (default per spec §5.2)
 
 export function TestQuiz() {
-  const { topicId } = useParams<{ topicId: string }>();
+  // Either /quiz/test/:topicId (topic test) OR /quiz/exam/:examId (curated exam)
+  const { topicId, examId } = useParams<{ topicId?: string; examId?: string }>();
   const navigate = useNavigate();
   const session = useQuizSession();
   const actions = useQuizActions();
@@ -22,17 +28,59 @@ export function TestQuiz() {
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [autoSubmitted, setAutoSubmitted] = useState(false);
 
+  // ── Topic-driven path ──
   const topic = topicId ? getTopicById(topicId) : undefined;
   const chapter = topicId ? getChapterByTopic(topicId) : undefined;
 
+  // ── Exam-driven path ──
+  const exam = useExamById(examId);
+  const allQuestions = useQuestionsStore((s) => s.questions);
+  const tracks = useTracks();
+  const formats = useFormats();
+
+  const examContext = useMemo(() => {
+    if (!exam) return null;
+    const byId = new Map(allQuestions.map((q) => [q.id, q]));
+    const resolved: Question[] = [];
+    for (const id of exam.questionIds) {
+      const q = byId.get(id);
+      if (q && !q.archivedAt) resolved.push(q);
+    }
+    const track = tracks.find((t) => t.id === exam.trackId);
+    const pattern = exam.paperPatternId ? formats.find((f) => f.id === exam.paperPatternId) : undefined;
+    const durationMinutes = pattern?.durationMinutes ?? exam.customDurationMinutes ?? 60;
+    return {
+      questions: resolved,
+      trackName: track?.name ?? 'Exam',
+      durationLimitSeconds: durationMinutes * 60,
+    };
+  }, [exam, allQuestions, tracks, formats]);
+
   // Initialize Test session
   useEffect(() => {
+    // Exam-driven init
+    if (examId && exam && examContext) {
+      if (session && session.topicId === exam.id && session.mode === 'test') return;
+      if (examContext.questions.length === 0) return;
+      actions.startSession({
+        attemptId: `att-${Date.now()}`,
+        topicId: exam.id,
+        topicName: exam.name,
+        chapterName: examContext.trackName,
+        mode: 'test',
+        formatTemplate: 'Custom',
+        questions: examContext.questions,
+        durationLimitSeconds: examContext.durationLimitSeconds,
+      });
+      setSecondsRemaining(examContext.durationLimitSeconds);
+      return;
+    }
+
+    // Topic-driven init
     if (!topic || !chapter) return;
     if (session && session.topicId === topic.id && session.mode === 'test') return;
-
     const questions = getQuestionsByTopic(topic.id);
     if (questions.length === 0) return;
-
     actions.startSession({
       attemptId: `att-${Date.now()}`,
       topicId: topic.id,
@@ -44,7 +92,7 @@ export function TestQuiz() {
       durationLimitSeconds: TOPIC_TEST_DURATION_SECONDS,
     });
     setSecondsRemaining(TOPIC_TEST_DURATION_SECONDS);
-  }, [topic, chapter, session, actions]);
+  }, [topic, chapter, exam, examContext, examId, session, actions]);
 
   // Countdown ticker
   useEffect(() => {
@@ -54,7 +102,6 @@ export function TestQuiz() {
         if (s <= 1) {
           clearInterval(interval);
           setAutoSubmitted(true);
-          // auto-submit after one tick
           setTimeout(() => {
             const attempt = actions.submit();
             if (attempt) navigate(`/report/${attempt.id}`);
@@ -77,7 +124,31 @@ export function TestQuiz() {
     return session.answers[currentQuestion.id];
   }, [session, currentQuestion]);
 
-  if (!topic || !chapter) {
+  // Source-not-found guards
+  if (examId && !exam) {
+    return (
+      <div className="container-page py-12 text-center">
+        <p className="text-slate-600">Exam not found (or archived).</p>
+        <Link to="/exams" className="text-brand-700 hover:underline">
+          Back to Exams
+        </Link>
+      </div>
+    );
+  }
+  if (examId && exam && examContext && examContext.questions.length === 0) {
+    return (
+      <div className="container-page py-12 text-center max-w-md mx-auto">
+        <p className="text-slate-700 font-semibold">"{exam.name}" can't be started.</p>
+        <p className="text-sm text-slate-500 mt-2">
+          All of this exam's questions have been archived or deleted. Ask the author to refresh the paper.
+        </p>
+        <Link to="/exams" className="inline-block mt-4 text-brand-700 hover:underline">
+          Back to Exams
+        </Link>
+      </div>
+    );
+  }
+  if (!examId && (!topic || !chapter)) {
     return (
       <div className="container-page py-12 text-center">
         <p className="text-slate-600">Topic not found.</p>
@@ -109,7 +180,13 @@ export function TestQuiz() {
   function handleExit() {
     setShowExitConfirm(false);
     actions.reset();
-    navigate(`/topic/${topic!.id}`);
+    if (examId) {
+      navigate('/exams');
+    } else if (topic) {
+      navigate(`/topic/${topic.id}`);
+    } else {
+      navigate('/dashboard');
+    }
   }
 
   const answered = Object.values(session.answers).filter(
@@ -117,18 +194,23 @@ export function TestQuiz() {
   ).length;
   const isLastQuestion = session.currentIndex === session.questions.length - 1;
 
+  const headerTitle = examId && exam ? exam.name : topic?.name ?? 'Test';
+  const headerSub =
+    examId && exam
+      ? `Test mode · ${examContext?.trackName ?? 'Exam'} (${session.questions.length} Qs)`
+      : `Test mode · Topic Test (${session.questions.length} Qs)`;
+
   return (
     <>
       <QuizHeader
-        topicName={topic.name}
-        modeLabel={`Test mode · Topic Test (${session.questions.length} Qs)`}
+        topicName={headerTitle}
+        modeLabel={headerSub}
         timerSeconds={secondsRemaining}
         isCountdown={true}
         onExit={() => setShowExitConfirm(true)}
       />
 
       <div className="container-page py-5 sm:py-6 max-w-3xl">
-        {/* Question palette — Test-mode style */}
         <div className="grid grid-cols-10 sm:flex sm:flex-wrap gap-1.5 mb-5">
           {session.questions.map((q, idx) => {
             const a = session.answers[q.id];
@@ -137,7 +219,7 @@ export function TestQuiz() {
               ? 'unseen'
               : a.studentAnswer === null
               ? 'skipped'
-              : 'answered'; // Test mode hides correctness
+              : 'answered';
             return (
               <button
                 key={q.id}
@@ -162,11 +244,10 @@ export function TestQuiz() {
           questionNumber={session.currentIndex + 1}
           totalQuestions={session.questions.length}
           existingAnswer={currentAnswer}
-          allowSolutionReveal={false} /* Test mode never shows mid-quiz solutions */
+          allowSolutionReveal={false}
           onAnswer={handleAnswer}
         />
 
-        {/* Footer nav — Test mode: no Skip button (silent skip per spec §5.6.2) */}
         <div className="mt-5 flex items-center justify-between gap-3">
           <Button
             variant="secondary"
@@ -194,7 +275,6 @@ export function TestQuiz() {
           )}
         </div>
 
-        {/* Footer status */}
         <div className="mt-6 text-center text-xs text-slate-500">
           {answered} of {session.questions.length} answered
         </div>
@@ -221,7 +301,6 @@ export function TestQuiz() {
         />
       )}
 
-      {/* Auto-submit splash */}
       {autoSubmitted && (
         <div className="fixed inset-0 z-50 bg-slate-900/80 flex items-center justify-center animate-fade-in">
           <div className="bg-white rounded-2xl p-8 text-center shadow-2xl max-w-sm">

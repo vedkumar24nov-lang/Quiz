@@ -14,12 +14,13 @@ router.use(requireAuth, requireRole('author', 'admin'));
 router.get('/stats', (_req, res) => {
   res.json({
     counts: {
-      subjects: 3,
-      chapters: 30,
-      topics: 75,
-      subtopics: 150,
-      questions: 45,        // ← seeded in frontend/src/data/questions.ts
-      testTemplates: 0,
+      tracks: 4,            // JEE Main + NEET (competitive) + Class 11 PCM + Class 12 PCB (class-stream)
+      formats: 6,
+      subjects: 6,          // 3 in JEE Main + 3 in NEET
+      chapters: 33,         // 30 in JEE Main + 3 in NEET seed
+      topics: 78,           // 75 in JEE Main + 3 in NEET seed
+      subtopics: 151,       // 150 in JEE Main + 1 in NEET seed
+      questions: 45,        // ← seeded in frontend/src/data/questions.ts (JEE Main only)
     },
     health: {
       bankPerSubject: {

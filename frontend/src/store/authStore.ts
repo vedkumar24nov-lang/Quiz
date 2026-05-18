@@ -44,6 +44,7 @@ interface AuthState {
   hydrate: () => Promise<void>;
   loadDummyUsers: () => Promise<void>;
   signInAs: (userId: string) => Promise<void>;
+  signUp: (input: { name: string; email: string }) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -104,6 +105,24 @@ export const useAuthStore = create<AuthState>((set) => ({
         loading: false,
         error: err instanceof Error ? err.message : 'Sign-in failed',
       });
+    }
+  },
+
+  signUp: async ({ name, email }) => {
+    set({ loading: true, error: null });
+    try {
+      const data = await apiPost<{ user: DummyUserApi; token: string }>(
+        '/api/auth/signup',
+        { name, email }
+      );
+      setApiToken(data.token);
+      set({ user: toAuthUser(data.user), loading: false });
+    } catch (err) {
+      set({
+        loading: false,
+        error: err instanceof Error ? err.message : 'Sign-up failed',
+      });
+      throw err;
     }
   },
 

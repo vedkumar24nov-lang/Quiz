@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FolderTree,
   FileQuestion,
-  ListChecks,
   Upload,
   AlertCircle,
   ArrowRight,
@@ -11,20 +10,25 @@ import {
   FlaskConical,
   Sigma,
   Sparkles,
+  Compass,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { useAuthUser } from '@/store/authStore';
+import { useQuestionsStore } from '@/store/questionsStore';
+import { useTracks } from '@/store/hierarchyStore';
+import { useFormats } from '@/store/formatsStore';
 import { apiGet, ApiError } from '@/lib/api';
 import { cn } from '@/lib/cn';
 
 interface AuthorStats {
   counts: {
+    tracks: number;
+    formats: number;
     subjects: number;
     chapters: number;
     topics: number;
     subtopics: number;
     questions: number;
-    testTemplates: number;
   };
   health: {
     bankPerSubject: { physics: number; chemistry: number; mathematics: number };
@@ -40,9 +44,33 @@ interface AuthorStats {
 
 export function AuthorDashboard() {
   const user = useAuthUser();
+  // Live counts from local stores (frontend-of-truth until B-stage backend persistence lands)
+  const tracks = useTracks();
+  const formats = useFormats();
+  const questions = useQuestionsStore((s) => s.questions);
   const [stats, setStats] = useState<AuthorStats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Compute live counts from the stores. These take precedence over the
+  // hardcoded backend stub so author CRUD is reflected instantly.
+  const liveCounts = useMemo(() => {
+    const activeTracks = tracks.filter((t) => !t.archivedAt);
+    const activeFormats = formats.filter((f) => !f.archivedAt);
+    const subjects = activeTracks.flatMap((t) => t.subjects.filter((s) => !s.archivedAt));
+    const chapters = subjects.flatMap((s) => s.chapters.filter((c) => !c.archivedAt));
+    const topics = chapters.flatMap((c) => c.topics.filter((t) => !t.archivedAt));
+    const subtopics = topics.flatMap((t) => t.subtopics.filter((s) => !s.archivedAt));
+    return {
+      tracks: activeTracks.length,
+      formats: activeFormats.length,
+      subjects: subjects.length,
+      chapters: chapters.length,
+      topics: topics.length,
+      subtopics: subtopics.length,
+      questions: questions.filter((q) => !q.archivedAt).length,
+    };
+  }, [tracks, formats, questions]);
 
   useEffect(() => {
     apiGet<AuthorStats>('/api/author/stats')
@@ -95,14 +123,15 @@ export function AuthorDashboard() {
 
       {stats && (
         <>
-          {/* High-level counts */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            <CountCard label="Subjects" value={stats.counts.subjects} />
-            <CountCard label="Chapters" value={stats.counts.chapters} />
-            <CountCard label="Topics" value={stats.counts.topics} />
-            <CountCard label="Subtopics" value={stats.counts.subtopics} />
-            <CountCard label="Questions" value={stats.counts.questions} highlight />
-            <CountCard label="Test Templates" value={stats.counts.testTemplates} />
+          {/* High-level counts — live from local stores (CRUD reflects instantly) */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+            <CountCard label="Tracks" value={liveCounts.tracks} />
+            <CountCard label="Formats" value={liveCounts.formats} />
+            <CountCard label="Subjects" value={liveCounts.subjects} />
+            <CountCard label="Chapters" value={liveCounts.chapters} />
+            <CountCard label="Topics" value={liveCounts.topics} />
+            <CountCard label="Subtopics" value={liveCounts.subtopics} />
+            <CountCard label="Questions" value={liveCounts.questions} highlight />
           </div>
 
           {/* Per-subject bank health */}
@@ -184,6 +213,12 @@ export function AuthorDashboard() {
         <h2 className="text-base font-semibold text-slate-900 mb-3">Quick actions</h2>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <ActionCard
+            to="/author/tracks"
+            icon={<Compass className="w-5 h-5" />}
+            title="Tracks"
+            body="Add new class-streams (Class 11 PCM) or competitive exams (NEET, GATE) at the top of the syllabus tree."
+          />
+          <ActionCard
             to="/author/topics"
             icon={<FolderTree className="w-5 h-5" />}
             title="Topics & Subtopics"
@@ -200,12 +235,6 @@ export function AuthorDashboard() {
             icon={<Upload className="w-5 h-5" />}
             title="Bulk Import"
             body="Upload PYQ datasets via CSV — preview, fix errors, publish in one batch."
-          />
-          <ActionCard
-            to="/author/tests"
-            icon={<ListChecks className="w-5 h-5" />}
-            title="Test Templates"
-            body="Hand-pick questions into a test that students can take from Custom Test."
           />
         </div>
       </div>

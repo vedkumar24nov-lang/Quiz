@@ -14,4 +14,8 @@ export interface IUserRepository {
   list(): Promise<User[]>;
   create(user: Omit<User, 'createdAt'>): Promise<User>;
   count(): Promise<number>;
+  /** Admin-only: change a user's role. Returns the updated user, or null if not found. */
+  updateRole(id: string, role: User['role']): Promise<User | null>;
+  /** Returns true if a user was deleted, false if not found. */
+  delete(id: string): Promise<boolean>;
 }

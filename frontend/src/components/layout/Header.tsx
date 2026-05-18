@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Atom, LayoutDashboard, BookOpen, BarChart3, LogOut, ChevronDown, PenSquare } from 'lucide-react';
+import { Atom, LayoutDashboard, BookOpen, BarChart3, ClipboardList, LifeBuoy, LogOut, ChevronDown, PenSquare } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { useAuthStore, useAuthUser } from '@/store/authStore';
 import { useSubjectStore, type SubjectId } from '@/store/subjectStore';
@@ -8,7 +8,9 @@ import { useSubjectStore, type SubjectId } from '@/store/subjectStore';
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/topics', label: 'Topics', icon: BookOpen },
+  { to: '/exams', label: 'Exams', icon: ClipboardList },
   { to: '/heatmap', label: 'Heatmap', icon: BarChart3 },
+  { to: '/support', label: 'Help', icon: LifeBuoy },
 ];
 
 const SUBJECT_OPTIONS: Array<{ id: SubjectId; short: string; full: string }> = [
@@ -168,7 +170,7 @@ export function Header() {
       {/* Mobile bottom nav (only when signed in) */}
       {isAuthedRoute && (
         <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-slate-200 z-40">
-          <div className="grid grid-cols-3">
+          <div className="grid grid-cols-5">
             {NAV_ITEMS.map((item) => (
               <NavLink
                 key={item.to}

@@ -1,10 +1,13 @@
-import { useState } from 'react';
-import { XCircle, Eye, EyeOff, Flag } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { XCircle, Eye, EyeOff, Flag, CheckCircle2 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
 import { Badge, DifficultyBadge, TypeBadge } from '@/components/ui/Badge';
 import { getQuestionById } from '@/data/questions';
-import type { Attempt, Difficulty, QuestionType } from '@/types';
+import { useFlagsStore, useFlagsForQuestion, FLAG_REASON_LABELS } from '@/store/flagsStore';
+import { useAuthUser } from '@/store/authStore';
+import type { Attempt, Difficulty, FlagReason, QuestionType } from '@/types';
 import { cn } from '@/lib/cn';
 
 interface WrongAnsweredTabProps {
@@ -104,7 +107,14 @@ function WrongAnswerCard({
   number: number;
 }) {
   const [showSolution, setShowSolution] = useState(false);
+  const [flagOpen, setFlagOpen] = useState(false);
   const { ans, q } = row;
+  const me = useAuthUser();
+  const addFlag = useFlagsStore((s) => s.addFlag);
+  const existingFlags = useFlagsForQuestion(q.id);
+  const myOpenFlag = existingFlags.find(
+    (f) => f.studentId === (me?.id ?? null) && f.status === 'open'
+  );
 
   const studentText =
     q.format === 'mcq' && q.options && ans.studentAnswer !== null
@@ -171,14 +181,41 @@ function WrongAnswerCard({
         </button>
         <span className="text-slate-300">·</span>
         {/* Buyer fix ST-3: "Report this question" — student-driven flag */}
-        <button
-          className="text-xs text-slate-500 hover:text-slate-700 inline-flex items-center gap-1 focus-ring rounded px-1"
-          title="Report this question to the content team"
-        >
-          <Flag className="w-3.5 h-3.5" />
-          Report this question
-        </button>
+        {myOpenFlag ? (
+          <span
+            className="text-xs text-emerald-700 inline-flex items-center gap-1"
+            title="Admin will see your flag in the Question Flags queue"
+          >
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            Reported — thanks
+          </span>
+        ) : (
+          <button
+            onClick={() => setFlagOpen(true)}
+            className="text-xs text-slate-500 hover:text-slate-700 inline-flex items-center gap-1 focus-ring rounded px-1"
+            title="Tell the content team something looks wrong with this question"
+          >
+            <Flag className="w-3.5 h-3.5" />
+            Report this question
+          </button>
+        )}
       </div>
+
+      <FlagQuestionModal
+        open={flagOpen}
+        onClose={() => setFlagOpen(false)}
+        onSubmit={(reason, note) => {
+          addFlag({
+            questionId: q.id,
+            studentId: me?.id ?? null,
+            studentName: me?.name ?? null,
+            reason,
+            note: note.trim() || undefined,
+            stemSnapshot: q.stem,
+          });
+          setFlagOpen(false);
+        }}
+      />
 
       {showSolution && (
         <div className="ml-0 sm:ml-11 mt-3 p-4 bg-brand-50 border border-brand-200 rounded-lg animate-fade-in">
@@ -191,6 +228,98 @@ function WrongAnswerCard({
         </div>
       )}
     </Card>
+  );
+}
+
+function FlagQuestionModal({
+  open,
+  onClose,
+  onSubmit,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (reason: FlagReason, note: string) => void;
+}) {
+  const [reason, setReason] = useState<FlagReason>('wrong-answer');
+  const [note, setNote] = useState('');
+
+  // Reset form whenever the modal transitions from closed → open.
+  useEffect(() => {
+    if (open) {
+      setReason('wrong-answer');
+      setNote('');
+    }
+  }, [open]);
+
+  const reasons: FlagReason[] = [
+    'wrong-answer',
+    'unclear-stem',
+    'typo',
+    'bad-image',
+    'off-syllabus',
+    'other',
+  ];
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Report this question"
+      description="Tell the content team what looks off. An admin reviews every flag in the Question Flags queue, fixes (or archives) the question, and the next student gets a better experience."
+      size="sm"
+      footer={
+        <>
+          <Button variant="ghost" size="sm" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            leftIcon={<Flag className="w-3.5 h-3.5" />}
+            onClick={() => onSubmit(reason, note)}
+          >
+            Send report
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <div>
+          <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+            What's wrong?
+          </label>
+          <div className="grid grid-cols-2 gap-1.5">
+            {reasons.map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => setReason(r)}
+                className={cn(
+                  'text-left rounded-md border-2 p-2.5 text-xs transition-all focus-ring',
+                  reason === r
+                    ? 'border-brand-500 bg-brand-50 text-brand-900 font-semibold'
+                    : 'border-slate-200 bg-white text-slate-700 hover:border-brand-300'
+                )}
+              >
+                {FLAG_REASON_LABELS[r]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <label className="block">
+          <span className="block text-xs font-semibold text-slate-700 mb-1.5">
+            Anything else? <span className="text-slate-400 font-normal">(optional)</span>
+          </span>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="e.g. The correct answer should be C — the formula in the solution gives 0.25, not 0.30."
+            rows={3}
+            className="w-full px-3 py-2 bg-white border border-slate-300 rounded-md text-sm focus-ring focus:border-brand-500 resize-none"
+          />
+        </label>
+      </div>
+    </Modal>
   );
 }
 

@@ -77,7 +77,7 @@ export function CustomTestBuilder() {
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 flex items-center gap-2">
           <Sliders className="w-6 h-6 text-brand-600" />
-          Build a Custom Test
+          Or build your own
         </h1>
         <p className="text-sm text-slate-600 mt-1">
           Pick chapters, set duration and question count. Marking: difficulty-weighted (Easy +3 / Medium +4 / Hard +5; wrong −2).
@@ -268,3 +268,4 @@ export function CustomTestBuilder() {
     </div>
   );
 }
+

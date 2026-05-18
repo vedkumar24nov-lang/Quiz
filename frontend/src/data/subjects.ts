@@ -14,6 +14,7 @@ const st = (topicId: string, id: string, name: string, questionCount?: number): 
 
 export const PHYSICS: Subject = {
   id: 'physics',
+  trackId: 'track-jee-main',
   name: 'Physics',
   chapters: [
     {
@@ -259,6 +260,7 @@ export const PHYSICS: Subject = {
 
 export const CHEMISTRY: Subject = {
   id: 'chemistry',
+  trackId: 'track-jee-main',
   name: 'Chemistry',
   chapters: [
     {
@@ -484,6 +486,7 @@ export const CHEMISTRY: Subject = {
 
 export const MATHEMATICS: Subject = {
   id: 'mathematics',
+  trackId: 'track-jee-main',
   name: 'Mathematics',
   chapters: [
     {

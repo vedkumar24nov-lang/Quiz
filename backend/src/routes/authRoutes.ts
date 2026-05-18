@@ -31,6 +31,20 @@ router.post('/login', async (req, res, next) => {
   }
 });
 
+// POST /api/auth/signup   { name, email }
+// Self-service registration. Always creates a `student` — admins must
+// promote anyone who needs author/admin powers via the Users page.
+router.post('/signup', async (req, res, next) => {
+  try {
+    const name = String(req.body?.name ?? '');
+    const email = String(req.body?.email ?? '');
+    const session = await authService.signUp({ name, email });
+    res.status(201).json(session);
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/auth/me
 // Resolve the X-User-Id header back to a User record.
 router.get('/me', requireAuth, (req, res) => {

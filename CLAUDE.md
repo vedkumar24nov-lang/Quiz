@@ -6,9 +6,11 @@
 
 ## What this project is
 
-A JEE prep quiz app for Indian Class 11 + 12 students. Three subjects (Physics, Chemistry, Mathematics). Adaptive difficulty driven by per-topic mastery scores. Detailed post-quiz reports with skip-reason analytics.
+A **competitive-exam prep quiz app** for Indian students. Multi-exam from day 1 — JEE Main + NEET seeded; authors can add more (GATE, BITSAT, CAT, UPSC, etc.) via the Author Console. Adaptive difficulty driven by per-topic mastery scores. Detailed post-quiz reports with skip-reason analytics.
 
 The product hypothesis: students don't just need more questions — they need to know *what kind* of thinking each question demands and *where* their thinking breaks down.
+
+**Hierarchy (5 levels):** Exam → Subject → Chapter → Topic → Subtopic. Each Exam owns its own subjects (so "JEE Physics" and "NEET Physics" are different trees with different chapters and difficulty levels — Decision Q1=a, see Roadmap).
 
 ---
 
@@ -215,3 +217,6 @@ Karthik (P9 from PERSONAS) is phone-only with 10–15 min sessions. Test on a 5-
 | **A5** | Frontend proxies `/api/*` to backend in dev | Same code paths in dev and prod; no environment-specific URL logic |
 | **A6** | One-click dummy login (userId-as-token) for v1 | Lets us iterate on every flow without typing passwords; clearly marked as dev-only |
 | **A7** | All 3 JEE subjects in v1 (Physics + Chem + Maths) | Reversed earlier "Physics-only" call — see ROADMAP D-1 + REQUIREMENTS §9.1 |
+| **A8** | Multi-exam architecture from day 1 (Exam → Subject → Chapter → Topic → Subtopic) | Product is competitive-exam-prep, not JEE-only. Authors can create new exams. Each exam owns its syllabus (no shared subjects). |
+| **A9** | Multi-exam students supported (Option B) — students can prep for >1 exam at once | Real student behavior. UI mixes content with filters. Schema supports this via `student_exams` join when backend lands. |
+| **A10** | Authors create exams, but admin gates publishing | Authors prototype exam variants freely (`isPublished=false`); admin flips publish to expose to students. Decision Q3=b. |

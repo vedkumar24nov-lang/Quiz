@@ -3,9 +3,10 @@ import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   Atom,
   LayoutDashboard,
+  Compass,
+  ClipboardList,
   FolderTree,
   FileQuestion,
-  ListChecks,
   Upload,
   History,
   ArrowLeft,
@@ -13,9 +14,19 @@ import {
   LogOut,
   Menu,
   X,
+  ShieldCheck,
+  Users as UsersIcon,
+  Flag,
+  Inbox,
+  LifeBuoy,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { useAuthStore, useAuthUser } from '@/store/authStore';
+import { useTracks } from '@/store/hierarchyStore';
+import { useExamsStore } from '@/store/examsStore';
+import { useFormatsStore } from '@/store/formatsStore';
+import { useOpenFlags } from '@/store/flagsStore';
+import { useOpenTickets } from '@/store/ticketsStore';
 
 interface AuthorShellProps {
   children: ReactNode;
@@ -23,11 +34,19 @@ interface AuthorShellProps {
 
 const NAV = [
   { to: '/author/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/author/tracks', label: 'Tracks', icon: Compass },
+  { to: '/author/exam', label: 'Exam', icon: ClipboardList },
   { to: '/author/topics', label: 'Topics & Subtopics', icon: FolderTree },
   { to: '/author/questions', label: 'Questions', icon: FileQuestion },
-  { to: '/author/tests', label: 'Test Templates', icon: ListChecks },
   { to: '/author/imports', label: 'Bulk Import', icon: Upload },
   { to: '/author/history', label: 'Edit History', icon: History },
+];
+
+const ADMIN_NAV = [
+  { to: '/admin/review', label: 'Review Queue', icon: Inbox },
+  { to: '/admin/flags', label: 'Question Flags', icon: Flag },
+  { to: '/admin/tickets', label: 'Support Tickets', icon: LifeBuoy },
+  { to: '/admin/users', label: 'Users', icon: UsersIcon },
 ];
 
 export function AuthorShell({ children }: AuthorShellProps) {
@@ -38,6 +57,24 @@ export function AuthorShell({ children }: AuthorShellProps) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
+
+  const isAdmin = user?.role === 'admin';
+
+  // Pending-publish count: drafts the admin should review.
+  const tracks = useTracks();
+  const exams = useExamsStore((s) => s.exams);
+  const formats = useFormatsStore((s) => s.formats);
+  const pendingCount = isAdmin
+    ? tracks.filter((t) => !t.archivedAt && !t.isPublished).length +
+      exams.filter((e) => !e.archivedAt && !e.isPublished && e.questionIds.length > 0).length +
+      formats.filter((f) => !f.archivedAt && !f.isSystem).length
+    : 0;
+
+  const openFlags = useOpenFlags();
+  const openFlagCount = isAdmin ? openFlags.length : 0;
+
+  const openTickets = useOpenTickets();
+  const openTicketCount = isAdmin ? openTickets.length : 0;
 
   // Close profile menu on outside click
   useEffect(() => {
@@ -172,9 +209,67 @@ export function AuthorShell({ children }: AuthorShellProps) {
                 {item.label}
               </NavLink>
             ))}
+
+            {isAdmin && (
+              <>
+                <div className="mt-4 mb-1 px-3 text-[10px] font-bold uppercase tracking-wider text-emerald-700 inline-flex items-center gap-1.5">
+                  <ShieldCheck className="w-3 h-3" />
+                  Admin tools
+                </div>
+                {ADMIN_NAV.map((item) => {
+                  const badge =
+                    item.to === '/admin/review'
+                      ? pendingCount
+                      : item.to === '/admin/flags'
+                      ? openFlagCount
+                      : item.to === '/admin/tickets'
+                      ? openTicketCount
+                      : 0;
+                  return (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      className={({ isActive }) =>
+                        cn(
+                          'flex items-center gap-2.5 h-10 px-3 rounded-md text-sm font-medium transition-colors focus-ring',
+                          isActive
+                            ? 'bg-emerald-50 text-emerald-900'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                        )
+                      }
+                    >
+                      <item.icon className="w-4 h-4 flex-shrink-0" />
+                      <span className="flex-1">{item.label}</span>
+                      {badge > 0 && (
+                        <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full text-[10px] font-bold bg-emerald-600 text-white">
+                          {badge}
+                        </span>
+                      )}
+                    </NavLink>
+                  );
+                })}
+              </>
+            )}
+
+            {/* Help & Feedback — every role can raise a ticket. Lives in the
+                student app's main nav too; here it's the author/admin entry. */}
+            <NavLink
+              to="/support"
+              className={({ isActive }) =>
+                cn(
+                  'mt-4 flex items-center gap-2.5 h-10 px-3 rounded-md text-sm font-medium transition-colors focus-ring border-t border-slate-100 pt-3 -mt-px',
+                  isActive
+                    ? 'bg-brand-50 text-brand-900'
+                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                )
+              }
+            >
+              <LifeBuoy className="w-4 h-4 flex-shrink-0" />
+              Help &amp; Feedback
+            </NavLink>
           </nav>
           <div className="p-3 text-[11px] text-slate-400 border-t border-slate-100">
-            Author Console · v1
+            {isAdmin ? 'Author + Admin Console · v1' : 'Author Console · v1'}
           </div>
         </aside>
 
@@ -206,6 +301,46 @@ export function AuthorShell({ children }: AuthorShellProps) {
                     {item.label}
                   </NavLink>
                 ))}
+
+                {isAdmin && (
+                  <>
+                    <div className="mt-4 mb-1 px-3 text-[10px] font-bold uppercase tracking-wider text-emerald-700 inline-flex items-center gap-1.5">
+                      <ShieldCheck className="w-3 h-3" />
+                      Admin tools
+                    </div>
+                    {ADMIN_NAV.map((item) => {
+                      const badge =
+                        item.to === '/admin/review'
+                          ? pendingCount
+                          : item.to === '/admin/flags'
+                          ? openFlagCount
+                          : 0;
+                      return (
+                        <NavLink
+                          key={item.to}
+                          to={item.to}
+                          className={({ isActive }) =>
+                            cn(
+                              'flex items-center gap-2.5 h-11 px-3 rounded-md text-sm font-medium transition-colors',
+                              isActive
+                                ? 'bg-emerald-50 text-emerald-900'
+                                : 'text-slate-600 hover:bg-slate-50'
+                            )
+                          }
+                        >
+                          <item.icon className="w-4 h-4" />
+                          <span className="flex-1">{item.label}</span>
+                          {badge > 0 && (
+                            <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full text-[10px] font-bold bg-emerald-600 text-white">
+                              {badge}
+                            </span>
+                          )}
+                        </NavLink>
+                      );
+                    })}
+                  </>
+                )}
+
                 <Link
                   to="/dashboard"
                   className="mt-2 flex items-center gap-2.5 h-11 px-3 rounded-md text-sm font-medium text-slate-500 hover:bg-slate-50 border-t border-slate-100 pt-3"

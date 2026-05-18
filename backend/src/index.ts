@@ -4,6 +4,7 @@ import { config } from '@/config';
 import { ensureSchema, closeDb } from '@/db/client';
 import authRoutes from '@/routes/authRoutes';
 import authorRoutes from '@/routes/authorRoutes';
+import adminRoutes from '@/routes/adminRoutes';
 
 async function bootstrap() {
   await ensureSchema();
@@ -26,6 +27,7 @@ async function bootstrap() {
   // Routes
   app.use('/api/auth', authRoutes);
   app.use('/api/author', authorRoutes);
+  app.use('/api/admin', adminRoutes);
 
   // 404 for any unmatched /api/* request
   app.use('/api/*', (_req, res) => {
